@@ -4,14 +4,17 @@
     android:installLocation="auto"
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:versionCode="@QT_ANDROID_APP_VERSION_CODE@">
-    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="28"/>
+    <!-- uses-sdk android:minSdkVersion="21" android:targetSdkVersion="30"/ -->
     <application
+        android:hardwareAccelerated="true"
         android:label="@QT_ANDROID_APP_NAME@"
-        android:name="org.qtproject.qt5.android.bindings.QtApplication">
+        android:name="org.qtproject.qt5.android.bindings.QtApplication"
+        android:extractNativeLibs="true"
+        @QT_ANDROID_APK_ICON_CMD@>
         <activity
-            android:label="@QT_ANDROID_APP_NAME@"
+            android:label="@QT_ANDROID_APP_NAME_ACTIVE@"
             android:name="org.qtproject.qt5.android.bindings.QtActivity"
-            android:screenOrientation="unspecified"
+            android:screenOrientation="@QT_ANDROID_APP_SCREEN_ORIENT@"
             android:configChanges="orientation|uiMode|screenLayout|screenSize|smallestScreenSize|layoutDirection|locale|fontScale|keyboard|keyboardHidden|navigation">
 
             <intent-filter>

@@ -54,10 +54,13 @@ include(CMakeParseArguments)
 #
 # example:
 # add_qt_android_apk(my_app_apk my_app
-#     NAME "My App"
+#     NAME "AppShowName"  For example: "Message"
+#     NAME_ACTIVE "AppPropertyName"   For example: "Message - A Communication Application"
 #     VERSION_CODE 12
 #     PACKAGE_NAME "org.mycompany.myapp"
-#     PACKAGE_SOURCES ${CMAKE_CURRENT_LIST_DIR}/my-android-sources
+#     PACKAGE_SOURCES ${CMAKE_CURRENT_LIST_DIR}/my-android-sources   DO NOT USE!!!!!!
+#     SCREEN_ORIENT "portrait"
+#     APK_ICON_DIR "source/res"  Please use the qt creator to create the icon template.
 #     KEYSTORE ${CMAKE_CURRENT_LIST_DIR}/mykey.keystore myalias
 #     KEYSTORE_PASSWORD xxxx
 #     DEPENDS a_linked_target "path/to/a_linked_library.so" ...
@@ -67,7 +70,9 @@ include(CMakeParseArguments)
 macro(add_qt_android_apk TARGET SOURCE_TARGET)
 
     # parse the macro arguments
-    cmake_parse_arguments(ARG "INSTALL" "NAME;VERSION_CODE;PACKAGE_NAME;PACKAGE_SOURCES;KEYSTORE_PASSWORD" "DEPENDS;KEYSTORE;APK_BUILD_TYPE" ${ARGN})
+    cmake_parse_arguments(ARG "INSTALL"
+        "SCREEN_ORIENT;NAME;NAME_ACTIVE;VERSION_CODE;PACKAGE_NAME"
+        "PACKAGE_SOURCES;KEYSTORE_PASSWORD;DEPENDS;KEYSTORE;APK_BUILD_TYPE;APK_ICON_DIR" ${ARGN})
 
     # extract the full path of the source target binary
     set(QT_ANDROID_APP_PATH "$<TARGET_FILE:${SOURCE_TARGET}>")  # full file path to the app's main shared library
@@ -89,11 +94,34 @@ macro(add_qt_android_apk TARGET SOURCE_TARGET)
         set(QT_ANDROID_APP_NAME ${SOURCE_TARGET})
     endif()
 
+    # define the SCREEN_ORIENT
+    if(ARG_SCREEN_ORIENT)
+        set(QT_ANDROID_APP_SCREEN_ORIENT ${ARG_SCREEN_ORIENT})
+    else()
+        set(QT_ANDROID_APP_SCREEN_ORIENT "portrait")
+    endif()
+
+    # define the application name
+    if(ARG_NAME_ACTIVE)
+        set(QT_ANDROID_APP_NAME_ACTIVE ${ARG_NAME_ACTIVE})
+    else()
+        set(QT_ANDROID_APP_NAME_ACTIVE ${SOURCE_TARGET})
+    endif()
+
     # define the application package name
     if(ARG_PACKAGE_NAME)
         set(QT_ANDROID_APP_PACKAGE_NAME ${ARG_PACKAGE_NAME})
     else()
         set(QT_ANDROID_APP_PACKAGE_NAME org.qtproject.${SOURCE_TARGET})
+    endif()
+
+    if(ARG_APK_ICON_DIR)
+        set(QT_ANDROID_APK_ICON_DIR ${ARG_APK_ICON_DIR})
+        set(QT_ANDROID_APK_ICON_CMD "android:icon=\"@drawable/icon\"")
+        # this code cannot be removed, otherwise the icon won't be shown properly
+        message(SATUS "QT_ANDROID_APK_ICON_CMD = ${QT_ANDROID_APK_ICON_CMD}")
+    else()
+        set(QT_ANDROID_APK_ICON_CMD "")
     endif()
 
     # detect latest Android SDK build-tools revision
@@ -114,14 +142,14 @@ macro(add_qt_android_apk TARGET SOURCE_TARGET)
     endif()
 
     # try to extract the app version from the target properties, or use the version code if not provided
-    get_property(QT_ANDROID_APP_VERSION TARGET ${SOURCE_TARGET} PROPERTY VERSION)
-    if(NOT QT_ANDROID_APP_VERSION)
-        if(PROJECT_VERSION)
-            set(QT_ANDROID_APP_VERSION ${PROJECT_VERSION})
-        else()
-            set(QT_ANDROID_APP_VERSION ${QT_ANDROID_APP_VERSION_CODE})
-        endif()
+#    get_property(QT_ANDROID_APP_VERSION TARGET ${SOURCE_TARGET} PROPERTY VERSION)
+#    if(NOT QT_ANDROID_APP_VERSION)
+    if(PROJECT_VERSION)
+        set(QT_ANDROID_APP_VERSION ${PROJECT_VERSION})
+    else()
+        set(QT_ANDROID_APP_VERSION ${QT_ANDROID_APP_VERSION_CODE})
     endif()
+#    endif()
 
     set(BUILD_GRADLE_TEMPLATE ${QT_ANDROID_SOURCE_DIR}/build.gradle.in)
     # check if the user provides a custom source package and its own manifest file
@@ -157,6 +185,13 @@ macro(add_qt_android_apk TARGET SOURCE_TARGET)
             set(QT_ANDROID_PRE_COMMANDS ${QT_ANDROID_PRE_COMMANDS} COMMAND ${CMAKE_COMMAND} -E copy_directory ${ARG_PACKAGE_SOURCES} ${QT_ANDROID_APP_PACKAGE_SOURCE_ROOT}) # copy the user package
         endif()
         set(QT_ANDROID_PRE_COMMANDS ${QT_ANDROID_PRE_COMMANDS} COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/AndroidManifest.xml ${QT_ANDROID_APP_PACKAGE_SOURCE_ROOT}/AndroidManifest.xml) # copy the generated manifest
+
+
+        # copy the icon directory to the binary directory
+        if(ARG_APK_ICON_DIR)
+            set(QT_ANDROID_PRE_COMMANDS ${QT_ANDROID_PRE_COMMANDS} COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/package/res") # copy the generated manifest
+            set(QT_ANDROID_PRE_COMMANDS ${QT_ANDROID_PRE_COMMANDS} COMMAND ${CMAKE_COMMAND} -E copy_directory ${QT_ANDROID_APK_ICON_DIR} "${CMAKE_CURRENT_BINARY_DIR}/package/res") # copy the generated manifest
+        endif()
     endif()
 
     # newer NDK toolchains don't define ANDROID_STL_PREFIX anymore,
@@ -233,10 +268,12 @@ macro(add_qt_android_apk TARGET SOURCE_TARGET)
     # unfortunately, Qt tries to build paths from these variables although these full paths
     # are already available in the toochain file, so we have to parse them if using gcc
     if(QT_ANDROID_USE_LLVM STREQUAL "true")
+        message(STATUS "ANDROID USING llvm")
         set(QT_ANDROID_TOOLCHAIN_PREFIX "llvm")
         set(QT_ANDROID_TOOLCHAIN_VERSION)
         set(QT_ANDROID_TOOL_PREFIX "llvm")
     else()
+        message(STATUS "ANDROID USING gcc")
         string(REGEX MATCH "${QT_ANDROID_NDK_ROOT}/toolchains/(.*)-(.*)/prebuilt/.*/bin/(.*)-" ANDROID_TOOLCHAIN_PARSED ${ANDROID_TOOLCHAIN_PREFIX})
         if(ANDROID_TOOLCHAIN_PARSED)
             set(QT_ANDROID_TOOLCHAIN_PREFIX ${CMAKE_MATCH_1})
@@ -296,6 +333,18 @@ macro(add_qt_android_apk TARGET SOURCE_TARGET)
       message(FATAL_ERROR "Unsupport APK_BUILD_TYPE ${ARG_APK_BUILD_TYPE}")
     endif ()
     # create a custom command that will run the androiddeployqt utility to prepare the Android package
+    message(STATUS "TARGET = ${TARGET}")
+    message(STATUS "SOURCE_TARGET = ${SOURCE_TARGET}")
+    message(STATUS "QT_ANDROID_PRE_COMMANDS = ${QT_ANDROID_PRE_COMMANDS}")
+    message(STATUS "ANDROID_ABI = ${ANDROID_ABI}")
+    message(STATUS "QT_ANDROID_APP_PATH = ${QT_ANDROID_APP_PATH}")
+    message(STATUS "CMAKE_COMMAND = ${CMAKE_COMMAND}")
+    message(STATUS "QT_ANDROID_QT_ROOT = ${QT_ANDROID_QT_ROOT}")
+    message(STATUS "QT_ANDROID_APP_BINARY_DIR = ${QT_ANDROID_APP_BINARY_DIR}")
+    message(STATUS "QT_ANDROID_BUILD_TYPE = ${QT_ANDROID_BUILD_TYPE}")
+    message(STATUS "TARGET_LEVEL_OPTIONS = ${TARGET_LEVEL_OPTIONS}")
+    message(STATUS "INSTALL_OPTIONS = ${INSTALL_OPTIONS}")
+    message(STATUS "SIGN_OPTIONS = ${SIGN_OPTIONS}")
     add_custom_target(
         ${TARGET}
         ALL

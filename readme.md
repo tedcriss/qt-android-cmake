@@ -1,4 +1,11 @@
 # Qt Android CMake utility
+## Why I fork it
+I was using Qt with CMake to create a Android application. However I met with the problem that how to add property message (such as application version) for my application. I Found this Repo useful.
+
+Then I want to add a icon for my application, but the Repo I used did not support this feature. So I spend sometimes make this worked and share it to everyone online.
+
+The **MAIN DIFFERENCE** between this Repo and the original Repo is that my Repo supports setting the **SCREEN ORIENTATION** and the **ICON** for a android application building with **CMake + Qt**.
+
 
 ## What it is
 
@@ -140,6 +147,73 @@ Example:
 ```cmake
 add_qt_android_apk(my_app_apk my_app
     PACKAGE_SOURCES ${CMAKE_CURRENT_LIST_DIR}/my-android-sources
+)
+```
+
+### APK_ICON_DIR
+
+The path to a directory containing the icon resource for the android application. You can use the **Qt Creator** application to create the icon template in **PROJECT**. The tree view of the directory show be like below.
+```
+res
+├───drawable-hdpi
+│       icon.png
+│
+├───drawable-ldpi
+│       icon.png
+│
+├───drawable-mdpi
+│       icon.png
+│
+├───drawable-xhdpi
+│       icon.png
+│
+├───drawable-xxhdpi
+│       icon.png
+│
+├───drawable-xxxhdpi
+│       icon.png
+│
+└───values
+        libs.xml
+```
+
+If you don't provide this argument, the icon won't be created for your application. The icon of it will be the default icon which provided by your android system.
+
+Example:
+
+```cmake
+add_qt_android_apk(my_app_apk my_app
+    APK_ICON_DIR "${CMAKE_CURRENT_LIST_DIR}/res"
+)
+```
+
+### SCREEN_ORIENT
+
+The screen orientation property of your program. You can select this value in the list below.
+
+```
+// android:screenOrientation="unspecified"
+// android:screenOrientation="landscape"
+// android:screenOrientation="portrait"
+// android:screenOrientation="user"
+// android:screenOrientation="behind"
+// android:screenOrientation="sensor"
+// android:screenOrientation="nosensor"
+// android:screenOrientation="sensorLandscape"
+// android:screenOrientation="sensorPortrait"
+// android:screenOrientation="reverseLandscape"
+// android:screenOrientation="reversePortrait"
+// android:screenOrientation="fullSensor"
+```
+
+If you don't provide this value, it will use the default value ```"portrait"```.
+
+
+Example:
+
+```cmake
+add_qt_android_apk(my_app_apk my_app
+    SCREEN_ORIENT "portrait"
 )
 ```
 
